@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validReport(data) {
+      return exists(/databases/$(database)/documents/places/$(data.placeId))
+        && get(/databases/$(database)/documents/places/$(data.placeId)).data.published == true
+        && data.keys().hasAll([
+          'placeId', 'featureKey', 'status', 'note', 'observationDate',
+          'sourceContext', 'submittedAt', 'authorUid', 'reportType',
+          'verificationStatus'
+        ])
+        && data.keys().hasOnly([
+          'placeId', 'featureKey', 'status', 'note', 'observationDate',
+          'sourceContext', 'submittedAt', 'authorUid', 'reportType',
+          'verificationStatus'
+        ])
+        && data.placeId is string
+        && data.placeId.size() > 0
+        && data.featureKey in [
+          'stepFreeEntrance', 'wheelchairRamp', 'elevator',
+          'accessibleWashroom', 'accessibleParking', 'doorwayAccessibility'
+        ]
+        && data.status in ['yes', 'no', 'unknown', 'notApplicable']
+        && data.note is string
+        && data.note.size() <= 500
+        && data.sourceContext is string
+        && data.sourceContext.size() <= 240
+        && data.observationDate is timestamp
+        && data.observationDate <= request.time
+        && data.submittedAt == request.time
+        && data.authorUid == request.auth.uid
+        && data.reportType == 'userReport'
+        && data.verificationStatus == 'unverified';
+    }
+
+    // Published venue data is readable; only trusted server/admin tooling may
+    // create, edit, publish, or verify canonical place records.
+    match /places/{placeId} {
+      allow read: if resource.data.published == true;
+      allow write: if false;
+    }
+
+    // Reports remain separate from verified place data. Clients may submit
+    // an unverified report, but may never modify or delete one afterward.
+    match /accessibilityReports/{reportId} {
+      allow read: if true;
+      allow create: if signedIn() && validReport(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // User saved place IDs contain no profile data and are scoped to the UID.
+    // The app currently keeps saves local; these rules are ready if sync is
+    // enabled in a later stage.
+    match /users/{userId}/savedPlaces/{placeId} {
+      allow read, delete: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['placeId', 'savedAt'])
+        && request.resource.data.placeId == placeId
+        && request.resource.data.savedAt == request.time;
+      allow update: if false;
+    }
+  }
+}

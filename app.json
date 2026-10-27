@@ -1,15 +1,28 @@
 {
   "expo": {
     "name": "EqualEase",
-    "slug": "EqualEase",
+    "slug": "equalease",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "equalease",
     "icon": "./assets/icon.png",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "EqualEase uses your location only when you tap Use my location to find nearby places.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ]
+    ],
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.equalease.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
